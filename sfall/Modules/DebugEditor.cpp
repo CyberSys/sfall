@@ -423,6 +423,22 @@ static const DWORD addrNewLineChar[] = {
 	0x500A64, // "Friendly was in the way!"
 };
 
+const DWORD debugWinWidth = 500; // def 300
+const DWORD debugWinHeight = 492; // def 192
+
+void __declspec(naked) win_debug_multiply_hack() {
+	static const DWORD win_debug_multiply_hack_back = 0x4DC542;
+	__asm {
+		mov edi, debugWinHeight;
+		sub edi, 59;
+		sub edi, esi;
+		mov eax, debugWinWidth;
+		mul esi;
+		mov ebp, eax;
+		jmp win_debug_multiply_hack_back;
+	}
+}
+
 static void DebugModePatch() {
 	int dbgMode = IniReader::GetIntDefaultConfig("Debugging", "DebugMode", 0);
 	if (dbgMode > 0) {
@@ -434,6 +450,24 @@ static void DebugModePatch() {
 			SafeWrite8(0x444A6D, 0);
 			SafeWrite32(0x444A6E, 0x90909090);
 		}
+
+		// Bigger debug window - experiment (looks wierd but kinda works)
+		DWORD width = debugWinWidth;
+		DWORD height = debugWinHeight;
+		// Larger debug window
+		SafeWriteBatch<DWORD>(width, {0x4DC357, 0x4DC3AB, 0x4DC49C, 0x4DC5A0, 0x4DC5AB});
+		SafeWrite32(0x4DC348, height);
+		SafeWriteBatch<DWORD>(width - 16, {0x4DC38A, 0x4DC4FE});
+		SafeWriteBatch<DWORD>(width - 9, {0x4DC40D, 0x4DC471, 0x4DC562});
+		SafeWriteBatch<DWORD>(width - 18, {0x4DC41F, 0x4DC5B1, 0x4DC5C1});
+		SafeWrite32(0x4DC42A, height - 57);
+		// SafeWrite32(0x4DC528, height - 58);
+		SafeWrite32(0x4DC461, height - 47);
+		SafeWrite32(0x4DC4C0, height - 8);
+		SafeWrite32(0x4DC582, height - 32);
+		SafeWrite32(0x4DC5A5, width * 26 + 9);
+		MakeJump(0x4DC527, win_debug_multiply_hack);
+
 		SafeWrite8(0x4C6D9B, 0xB8);            // mov  eax, GNW/LOG
 		if (dbgMode & 2) {
 			SafeWrite32(0x4C6D9C, (DWORD)debugLog);
